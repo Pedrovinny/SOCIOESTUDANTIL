@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% block title %}Painel{% endblock %}
+
+{% block content %}
+<h4 class="mb-4"><i class="bi bi-speedometer2 me-2"></i>Painel geral</h4>
+
+<!-- KPIs -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="text-muted small">Alunos ativos</div>
+            <div class="fs-3 fw-bold text-success">{{ total_alunos }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="text-muted small">Refeições hoje</div>
+            <div class="fs-3 fw-bold text-primary">{{ refeicoes_hoje }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="text-muted small">Com perfil socioecon.</div>
+            <div class="fs-3 fw-bold text-info">{{ alunos_com_perfil }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="text-muted small">Em vulnerabilidade</div>
+            <div class="fs-3 fw-bold text-danger">{{ alunos_vulneraveis }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráficos -->
+<div class="row g-4">
+
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white fw-semibold">
+                <i class="bi bi-bar-chart me-2"></i>Refeições nos últimos 30 dias
+            </div>
+            <div class="card-body">
+                <canvas id="graficoRefeicoes" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white fw-semibold">
+                <i class="bi bi-pie-chart me-2"></i>Benefícios ativos
+            </div>
+            <div class="card-body d-flex align-items-center justify-content-center">
+                {% if dados_beneficios != '[]' %}
+                <canvas id="graficoBeneficios" height="160"></canvas>
+                {% else %}
+                <p class="text-muted text-center py-4">Nenhum benefício ativo no momento.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Atalhos rápidos -->
+<div class="row g-3 mt-2">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body d-flex flex-wrap gap-2">
+                <a href="{% url 'relatorio_pdf' %}" class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-file-earmark-pdf me-1"></i>Gerar relatório PDF
+                </a>
+                <a href="{% url 'listar_alunos' %}" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-people me-1"></i>Ver alunos
+                </a>
+                <a href="{% url 'beneficios' %}" class="btn btn-outline-warning btn-sm">
+                    <i class="bi bi-award me-1"></i>Gerenciar benefícios
+                </a>
+                <a href="{% url 'leitor' %}" class="btn btn-outline-success btn-sm">
+                    <i class="bi bi-upc-scan me-1"></i>Leitor de refeição
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+const labelsRef  = {{ labels_refeicoes|safe }};
+const dadosRef   = {{ dados_refeicoes|safe }};
+const labelsBen  = {{ labels_beneficios|safe }};
+const dadosBen   = {{ dados_beneficios|safe }};
+
+// Gráfico de barras — refeições
+new Chart(document.getElementById('graficoRefeicoes'), {
+    type: 'bar',
+    data: {
+        labels: labelsRef,
+        datasets: [{
+            label: 'Refeições',
+            data: dadosRef,
+            backgroundColor: 'rgba(29, 158, 117, 0.7)',
+            borderColor: '#1D9E75',
+            borderWidth: 1,
+            borderRadius: 4,
+        }]
+    },
+    options: {
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, ticks: { precision: 0 } },
+            x: { ticks: { maxTicksLimit: 10 } }
+        }
+    }
+});
+
+// Gráfico de pizza — benefícios
+if (dadosBen.length > 0) {
+    new Chart(document.getElementById('graficoBeneficios'), {
+        type: 'doughnut',
+        data: {
+            labels: labelsBen,
+            datasets: [{
+                data: dadosBen,
+                backgroundColor: ['#1D9E75', '#ffc107'],
+                borderWidth: 2,
+            }]
+        },
+        options: {
+            plugins: { legend: { position: 'bottom' } },
+            cutout: '55%',
+        }
+    });
+}
+</script>
+{% endblock %}

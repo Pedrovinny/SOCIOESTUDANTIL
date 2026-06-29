@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% block title %}Perfil — {{ aluno.2 }}{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="{% url 'listar_alunos' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <h4 class="mb-0"><i class="bi bi-person-lines-fill me-2"></i>{{ aluno.2 }}</h4>
+    <span class="badge bg-secondary">{{ aluno.1 }}</span>
+</div>
+
+{% if mensagem %}
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+    {{ mensagem }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+<!-- Cartão de situação -->
+{% if perfil %}
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="text-muted small">Renda familiar</div>
+            <div class="fs-5 fw-semibold">R$ {{ perfil.2|floatformat:2 }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="text-muted small">Renda per capita</div>
+            <div class="fs-5 fw-semibold">R$ {{ renda_pc }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <div class="text-muted small">Situação</div>
+            {% if vulneravel %}
+            <span class="badge bg-danger fs-6">Em vulnerabilidade</span>
+            {% else %}
+            <span class="badge bg-success fs-6">Fora do critério</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Formulário de perfil -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white fw-semibold">
+        <i class="bi bi-clipboard2-data me-2"></i>Dados socioeconômicos
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Renda familiar total (R$)</label>
+                    <input type="number" step="0.01" min="0" name="renda_familiar"
+                           class="form-control"
+                           value="{{ perfil.2|default:'' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Nº de membros na família</label>
+                    <input type="number" min="1" name="num_membros"
+                           class="form-control"
+                           value="{{ perfil.3|default:1 }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Situação de moradia</label>
+                    <select name="situacao_moradia" class="form-select">
+                        {% for chave, label in situacoes.items %}
+                        <option value="{{ chave }}"
+                            {% if perfil.4 == chave %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Observações</label>
+                    <textarea name="observacoes" class="form-control" rows="2">{{ perfil.5|default:'' }}</textarea>
+                </div>
+            </div>
+            <div class="mt-3">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-floppy me-1"></i>Salvar perfil
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Benefícios do aluno -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-award me-2"></i>Benefícios</span>
+        <a href="{% url 'beneficios' %}" class="btn btn-sm btn-outline-warning">
+            <i class="bi bi-plus-lg me-1"></i>Novo
+        </a>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Tipo</th>
+                    <th>Valor</th>
+                    <th>Início</th>
+                    <th>Fim</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in beneficios_aluno %}
+                <tr>
+                    <td>{{ tipos_beneficio|get_item:b.3|default:b.3 }}</td>
+                    <td>R$ {{ b.4|floatformat:2 }}</td>
+                    <td>{{ b.5 }}</td>
+                    <td>{{ b.6|default:"Em aberto" }}</td>
+                    <td>
+                        {% if b.7 %}
+                        <span class="badge bg-success">Ativo</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Encerrado</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-muted text-center py-3">Nenhum benefício cadastrado.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

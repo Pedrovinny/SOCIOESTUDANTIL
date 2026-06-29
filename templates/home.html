@@ -1,115 +1,84 @@
 {% extends 'base.html' %}
-
 {% load static %}
 
-{% block title %}
-Ticket Digital
-{% endblock %}
+{% block title %}Início — Socioestudantil{% endblock %}
 
 {% block content %}
 
-<div class="container py-5">
+<div class="text-center mb-5">
+    <img src="{% static 'ifam_humaita_logo_inicio.png' %}"
+         alt="Logo IFAM" class="img-fluid mb-3" style="max-width:220px;">
+    <h2 class="fw-semibold">Sistema Socioestudantil</h2>
+    <p class="text-muted">Assistência Estudantil — IFAM Campus Humaitá</p>
+</div>
 
-    <div class="text-center mb-5">
+<div class="row g-4">
 
-        <img src="{% static 'ifam_humaita_logo_inicio.png' %}"
-             alt="Logo IFAM"
-             class="img-fluid mb-3"
-             style="max-width:250px;">
-
-      
-
-        <p class="lead">
-            Sistema de Controle de Refeições
-        </p>
-
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body text-center p-4">
+                <i class="bi bi-speedometer2 display-4 text-success"></i>
+                <h5 class="mt-3">Painel</h5>
+                <p class="text-muted small">Indicadores, gráficos e resumo geral.</p>
+                <a href="{% url 'painel' %}" class="btn btn-success btn-sm">Acessar</a>
+            </div>
+        </div>
     </div>
 
-    <div class="row g-4">
-
-        <!-- Importação -->
-        <div class="col-lg-4">
-
-            <div class="card shadow h-100">
-
-                <div class="card-body text-center">
-
-                    <div class="display-4 mb-3">
-                        📂
-                    </div>
-
-                    <h4>Importar CSV</h4>
-
-                    <p>
-                        Importe os alunos através de um arquivo CSV.
-                    </p>
-
-                    <a href="{% url 'importar_csv' %}" class="btn btn-primary">
-                        Acessar
-                    </a>
-
-                </div>
-
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body text-center p-4">
+                <i class="bi bi-upc-scan display-4 text-primary"></i>
+                <h5 class="mt-3">Leitor de matrícula</h5>
+                <p class="text-muted small">Registrar retirada de refeição.</p>
+                <a href="{% url 'leitor' %}" class="btn btn-primary btn-sm">Acessar</a>
             </div>
-
         </div>
+    </div>
 
-        <!-- Leitor -->
-        <div class="col-lg-4">
-
-            <div class="card shadow h-100">
-
-                <div class="card-body text-center">
-
-                    <div class="display-4 mb-3">
-                        📱
-                    </div>
-
-                    <h4>Leitor QR Code</h4>
-
-                    <p>
-                        Registrar automaticamente a retirada da refeição.
-                    </p>
-
-                    <a href="{% url 'leitor' %}" class="btn btn-success">
-                        Acessar
-                    </a>
-
-                </div>
-
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body text-center p-4">
+                <i class="bi bi-people display-4 text-info"></i>
+                <h5 class="mt-3">Alunos</h5>
+                <p class="text-muted small">Lista e perfil socioeconômico.</p>
+                <a href="{% url 'listar_alunos' %}" class="btn btn-info btn-sm text-white">Acessar</a>
             </div>
-
         </div>
+    </div>
 
-        <!-- Relatório -->
-        <div class="col-lg-4">
-
-            <div class="card shadow h-100">
-
-                <div class="card-body text-center">
-
-                    <div class="display-4 mb-3">
-                        📊
-                    </div>
-
-                    <h4>Relatórios</h4>
-
-                    <p>
-                        Exportar os registros para CSV.
-                    </p>
-
-                    <a href="{% url 'relatorio' %}" class="btn btn-warning">
-                        Acessar
-                    </a>
-
-                </div>
-
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body text-center p-4">
+                <i class="bi bi-award display-4 text-warning"></i>
+                <h5 class="mt-3">Benefícios</h5>
+                <p class="text-muted small">Auxílio transporte e moradia.</p>
+                <a href="{% url 'beneficios' %}" class="btn btn-warning btn-sm">Acessar</a>
             </div>
-
         </div>
+    </div>
 
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body text-center p-4">
+                <i class="bi bi-file-earmark-pdf display-4 text-danger"></i>
+                <h5 class="mt-3">Relatórios PDF</h5>
+                <p class="text-muted small">Relatórios automáticos em PDF.</p>
+                <a href="{% url 'relatorio_pdf' %}" class="btn btn-danger btn-sm">Acessar</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body text-center p-4">
+                <i class="bi bi-upload display-4 text-secondary"></i>
+                <h5 class="mt-3">Importar CSV</h5>
+                <p class="text-muted small">Cadastrar alunos em lote.</p>
+                <a href="{% url 'importar_csv' %}" class="btn btn-secondary btn-sm">Acessar</a>
+            </div>
+        </div>
     </div>
 
 </div>
-
 {% endblock %}

@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% block title %}Relatórios PDF{% endblock %}
+
+{% block content %}
+<h4 class="mb-4"><i class="bi bi-file-earmark-pdf me-2"></i>Relatórios PDF</h4>
+
+<div class="row g-4">
+
+    <!-- Relatório de refeições -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="fw-semibold"><i class="bi bi-cup-hot me-2 text-primary"></i>Refeições por período</h6>
+                <p class="text-muted small">Lista todas as refeições registradas no intervalo informado.</p>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="tipo_relatorio" value="refeicoes">
+                    <div class="mb-2">
+                        <label class="form-label small">Data inicial</label>
+                        <input type="date" name="data_inicial" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small">Data final</label>
+                        <input type="date" name="data_final" class="form-control form-control-sm" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="bi bi-download me-1"></i>Gerar PDF
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Relatório de benefícios -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="fw-semibold"><i class="bi bi-award me-2 text-warning"></i>Benefícios ativos</h6>
+                <p class="text-muted small">Lista todos os benefícios ativos com valor e período de vigência.</p>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="tipo_relatorio" value="beneficios">
+                    <input type="hidden" name="data_inicial" value="">
+                    <input type="hidden" name="data_final" value="">
+                    <div class="mb-3">
+                        <p class="text-muted small fst-italic">Não requer filtro de data — exibe todos os ativos.</p>
+                    </div>
+                    <button type="submit" class="btn btn-warning btn-sm w-100">
+                        <i class="bi bi-download me-1"></i>Gerar PDF
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Relatório de vulnerabilidade -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="fw-semibold"><i class="bi bi-exclamation-triangle me-2 text-danger"></i>Alunos vulneráveis</h6>
+                <p class="text-muted small">
+                    Alunos com renda per capita ≤ 1,5× salário mínimo (critério PNAES).
+                </p>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="tipo_relatorio" value="vulneraveis">
+                    <input type="hidden" name="data_inicial" value="">
+                    <input type="hidden" name="data_final" value="">
+                    <div class="mb-3">
+                        <p class="text-muted small fst-italic">Considera alunos com perfil socioeconômico cadastrado.</p>
+                    </div>
+                    <button type="submit" class="btn btn-danger btn-sm w-100">
+                        <i class="bi bi-download me-1"></i>Gerar PDF
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Relatório CSV legado -->
+<div class="card border-0 shadow-sm mt-4">
+    <div class="card-body d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div>
+            <span class="fw-semibold"><i class="bi bi-filetype-csv me-2 text-secondary"></i>Export CSV (legado)</span>
+            <span class="text-muted small ms-2">Formato original, compatível com Excel.</span>
+        </div>
+        <a href="{% url 'relatorio' %}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-download me-1"></i>Acessar
+        </a>
+    </div>
+</div>
+{% endblock %}

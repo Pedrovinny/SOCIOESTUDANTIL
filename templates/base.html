@@ -3,18 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <title>{% block title %}Meu Sistema{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <title>{% block title %}Socioestudantil — IFAM{% endblock %}</title>
+    <style>
+        .navbar-brand { font-weight: 600; }
+        .nav-link.active { font-weight: 500; }
+        body { background-color: #f8f9fa; }
+    </style>
 </head>
 <body>
 
-    {% block content %}
-    {% endblock %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-success shadow-sm">
+    <div class="container">
+        <a class="navbar-brand" href="{% url 'home' %}">
+            <i class="bi bi-mortarboard-fill me-2"></i>Socioestudantil
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navMenu">
+            <ul class="navbar-nav ms-auto gap-1">
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'painel' %}">
+                        <i class="bi bi-speedometer2 me-1"></i>Painel
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'leitor' %}">
+                        <i class="bi bi-upc-scan me-1"></i>Leitor
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'listar_alunos' %}">
+                        <i class="bi bi-people me-1"></i>Alunos
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'beneficios' %}">
+                        <i class="bi bi-award me-1"></i>Benefícios
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'relatorio_pdf' %}">
+                        <i class="bi bi-file-earmark-pdf me-1"></i>Relatórios
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'importar_csv' %}">
+                        <i class="bi bi-upload me-1"></i>Importar
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+<div class="container py-4">
+    {% block content %}{% endblock %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+{% block scripts %}{% endblock %}
 </body>
 </html>
