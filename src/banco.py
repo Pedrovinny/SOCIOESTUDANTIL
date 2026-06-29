@@ -322,11 +322,27 @@ def listar_beneficios():
     with conectar() as conn:
         return conn.execute("""
             SELECT b.id_beneficio, a.nome, a.matricula,
-                   b.tipo, b.valor, b.data_inicio, b.data_fim, b.ativo
+                   b.tipo, b.valor, b.data_inicio, b.data_fim, b.ativo,
+                   b.aluno_id, b.observacoes
             FROM beneficios b
             INNER JOIN alunos a ON b.aluno_id = a.id_aluno
             ORDER BY b.ativo DESC, b.data_inicio DESC
         """).fetchall()
+
+
+def editar_beneficio(id_beneficio, aluno_id, tipo, valor, data_inicio, data_fim=None, observacoes=""):
+    with conectar() as conn:
+        conn.execute("""
+            UPDATE beneficios SET
+                aluno_id   = ?,
+                tipo       = ?,
+                valor      = ?,
+                data_inicio = ?,
+                data_fim   = ?,
+                observacoes = ?
+            WHERE id_beneficio = ?
+        """, (aluno_id, tipo, valor, data_inicio, data_fim or None, observacoes, id_beneficio))
+        conn.commit()
 
 
 def listar_beneficios_aluno(aluno_id):

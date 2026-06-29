@@ -155,6 +155,17 @@ def beneficios(request):
             inserir_beneficio(aluno_id, tipo, valor, data_inicio, data_fim, obs)
             mensagem = "Benefício cadastrado com sucesso."
 
+        elif acao == "editar":
+            id_beneficio = int(request.POST["id_beneficio"])
+            aluno_id     = int(request.POST["aluno_id"])
+            tipo         = request.POST["tipo"]
+            valor        = float(request.POST.get("valor", 0) or 0)
+            data_inicio  = request.POST["data_inicio"]
+            data_fim     = request.POST.get("data_fim") or None
+            obs          = request.POST.get("observacoes", "")
+            editar_beneficio(id_beneficio, aluno_id, tipo, valor, data_inicio, data_fim, obs)
+            mensagem = "Benefício atualizado com sucesso."
+
         elif acao == "encerrar":
             id_beneficio = int(request.POST["id_beneficio"])
             encerrar_beneficio(id_beneficio)
