@@ -13,6 +13,7 @@ Sistema de gestão da assistência estudantil do **IFAM Campus Humaitá** (Insti
 - [Banco de Dados](#banco-de-dados)
 - [Instalação e Execução](#instalação-e-execução)
 - [Rotas da Aplicação](#rotas-da-aplicação)
+- [Automação (BotCity)](#automação-botcity)
 - [Regras de Negócio](#regras-de-negócio)
 
 ---
@@ -38,6 +39,7 @@ O SocioEstudantil é uma aplicação web Django voltada ao setor de assistência
 | CSS / Layout | Bootstrap | 5.3.8 |
 | Ícones | Bootstrap Icons | 1.11.3 |
 | Gráficos | Chart.js | 4.4.4 |
+| Automação (RPA) | BotCity | 1.1.0 |
 
 ---
 
@@ -115,8 +117,13 @@ SOCIOESTUDANTIL/
 ├── static/
 │   └── ifam_humaita_logo_inicio.png
 │
-└── dados/
-    └── banco_ticket.db          # Banco de dados SQLite
+├── dados/
+│   └── banco_ticket.db          # Banco de dados SQLite
+│
+└── automacoes/                  # Bots RPA (BotCity)
+    ├── requirements.txt         # Dependências dos bots (separadas da aplicação)
+    ├── bot_relatorio_vulneraveis.py
+    └── relatorios/              # PDFs gerados pelos bots
 ```
 
 ---
@@ -186,6 +193,44 @@ Acesse em: [http://localhost:8000](http://localhost:8000)
 | `/relatorio-pdf/` | Gerador de relatórios PDF |
 | `/importar/` | Importação de alunos via CSV |
 | `/admin/` | Painel administrativo Django |
+
+---
+
+## Automação (BotCity)
+
+O diretório `automacoes/` contém bots RPA construídos com [BotCity](https://botcity.dev/) que operam a aplicação pela própria interface web (como um operador faria), já que o sistema não expõe API.
+
+### `bot_relatorio_vulneraveis.py`
+
+Gera automaticamente o **Relatório de Alunos em Situação de Vulnerabilidade** (PDF):
+
+1. Abre o Chrome e navega até `/relatorio-pdf/`.
+2. Clica no botão "Gerar PDF" do card "Alunos vulneráveis".
+3. Aguarda o download e salva o arquivo em `automacoes/relatorios/vulneraveis_AAAA-MM-DD.pdf`.
+
+**Pré-requisitos**
+- Servidor Django rodando (`python manage.py runserver`).
+- Google Chrome instalado.
+- Dependências do bot já incluídas no `requirements.txt` da raiz (um único `pip install -r requirements.txt` instala tudo, aplicação e bots).
+
+**Execução**
+```powershell
+venv\Scripts\python.exe automacoes\bot_relatorio_vulneraveis.py
+```
+Por padrão o bot roda com o Chrome **visível**, para acompanhar cada passo. Para rodar escondido (ex.: agendado em servidor), defina a variável de ambiente antes:
+```powershell
+$env:SOCIOESTUDANTIL_HEADLESS = "true"
+venv\Scripts\python.exe automacoes\bot_relatorio_vulneraveis.py
+```
+
+A URL da aplicação pode ser customizada via `SOCIOESTUDANTIL_URL` (padrão `http://localhost:8000`).
+
+**Nota técnica**: em Python 3.12+ o módulo `distutils` foi removido, mas uma dependência do BotCity (`undetected-chromedriver`) ainda o importa — o script contorna isso importando `setuptools` antes do `botcity.web`. O chromedriver correspondente à versão do Chrome instalado é baixado automaticamente via `webdriver-manager`.
+
+### Próximas automações planejadas
+- Envio automático do PDF gerado por e-mail.
+- Agendamento periódico (mensal) via Agendador de Tarefas do Windows ou BotCity Maestro.
+- Mesmo padrão aplicado aos relatórios de refeições e benefícios ativos.
 
 ---
 
