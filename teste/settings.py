@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -120,3 +121,19 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
+
+
+# Email (Mailtrap SMTP)
+# https://docs.mailtrap.io/email-api-smtp/setup/smtp-integration.md
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'live.smtp.mailtrap.io'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'api'
+
+# SECURITY WARNING: token lido do ambiente, nunca hardcoded aqui.
+EMAIL_HOST_PASSWORD = os.environ.get('MAILTRAP_API_TOKEN', '')
+
+# Precisa ser um endereço de um domínio verificado no Mailtrap (Sending Domains);
+# sem isso o envio falha mesmo com o token correto.
+DEFAULT_FROM_EMAIL = 'relatorios@projetodxacademy.shop'

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<body style="margin:0; padding:0; background-color:#f8f9fa; font-family: Arial, Helvetica, sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8f9fa; padding:24px 0;">
+    <tr>
+        <td align="center">
+            <table role="presentation" width="100%" style="max-width:520px; background:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.08);" cellpadding="0" cellspacing="0">
+                <tr>
+                    <td style="background-color:#1D9E75; padding:24px 32px;">
+                        <div style="color:#ffffff; font-size:13px; letter-spacing:.04em; text-transform:uppercase; opacity:.85;">IFAM Campus Humaitá</div>
+                        <div style="color:#ffffff; font-size:20px; font-weight:700; margin-top:4px;">Sistema SocioEstudantil</div>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:32px;">
+                        <p style="margin:0 0 16px; color:#212529; font-size:15px; line-height:1.5;">Olá,</p>
+                        <p style="margin:0 0 16px; color:#212529; font-size:15px; line-height:1.5;">
+                            Segue(m) em anexo o(s) relatório(s) com frequência <strong>{{ frequencia_label }}</strong>,
+                            gerado(s) em {{ data }}:
+                        </p>
+                        <ul style="margin:0 0 24px; padding-left:20px; color:#212529; font-size:15px; line-height:1.7;">
+                            {% for nome in nomes %}
+                            <li>{{ nome }}</li>
+                            {% endfor %}
+                        </ul>
+                        <p style="margin:0; color:#6c757d; font-size:13px; line-height:1.5;">
+                            Para alterar quais relatórios recebe ou a frequência de envio, acesse
+                            <a href="{{ base_url }}/inscricoes/" style="color:#1D9E75;">{{ base_url }}/inscricoes/</a>.
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:16px 32px; background-color:#f8f9fa; border-top:1px solid #e9ecef;">
+                        <p style="margin:0; color:#adb5bd; font-size:12px;">Assistência Estudantil — IFAM Campus Humaitá</p>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>

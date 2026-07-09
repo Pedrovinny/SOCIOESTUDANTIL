@@ -85,6 +85,14 @@ def criar_tabelas():
             FOREIGN KEY(aluno_id) REFERENCES alunos(id_aluno)
         );
 
+        CREATE TABLE IF NOT EXISTS inscricoes_email(
+            id_inscricao INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL UNIQUE,
+            frequencia TEXT NOT NULL DEFAULT 'SEMANAL',
+            tipos_relatorio TEXT NOT NULL DEFAULT '',
+            data_cadastro DATE
+        );
+
         """)
 
         conn.execute("""
@@ -306,6 +314,51 @@ def encerrar_beneficio(id_beneficio):
             UPDATE beneficios SET ativo = 0, data_fim = ?
             WHERE id_beneficio = ?
         """, (hoje, id_beneficio))
+        conn.commit()
+
+
+# ======================================================
+# INSCRIÇÕES DE E-MAIL (recebimento periódico de relatórios)
+# ======================================================
+
+FREQUENCIAS_ENVIO = {
+    'DIARIA': 'Diária',
+    'SEMANAL': 'Semanal',
+    'MENSAL': 'Mensal',
+}
+
+TIPOS_RELATORIO = {
+    'beneficios':                'Benefícios Ativos',
+    'vulneraveis':                'Alunos Vulneráveis',
+    'alunos_turma':               'Alunos por Turma',
+    'sem_perfil':                 'Sem Perfil Cadastrado',
+    'vulneraveis_sem_beneficio':  'Vulneráveis sem Benefício',
+}
+
+
+def inserir_inscricao_email(email, frequencia, tipos_relatorio):
+    hoje = datetime.now().strftime("%Y-%m-%d")
+    tipos = ",".join(tipos_relatorio)
+    with conectar() as conn:
+        conn.execute("""
+            INSERT INTO inscricoes_email(email, frequencia, tipos_relatorio, data_cadastro)
+            VALUES (?, ?, ?, ?)
+        """, (email, frequencia, tipos, hoje))
+        conn.commit()
+
+
+def listar_inscricoes_email():
+    with conectar() as conn:
+        return conn.execute("""
+            SELECT id_inscricao, email, frequencia, tipos_relatorio, data_cadastro
+            FROM inscricoes_email
+            ORDER BY email
+        """).fetchall()
+
+
+def excluir_inscricao_email(id_inscricao):
+    with conectar() as conn:
+        conn.execute("DELETE FROM inscricoes_email WHERE id_inscricao = ?", (id_inscricao,))
         conn.commit()
 
 

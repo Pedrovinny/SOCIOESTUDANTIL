@@ -13,6 +13,7 @@ Sistema de gestão da assistência estudantil do **IFAM Campus Humaitá** (Insti
 - [Banco de Dados](#banco-de-dados)
 - [Instalação e Execução](#instalação-e-execução)
 - [Rotas da Aplicação](#rotas-da-aplicação)
+- [Envio de E-mail (Mailtrap SMTP)](#envio-de-e-mail-mailtrap-smtp)
 - [Automação (BotCity)](#automação-botcity)
 - [Regras de Negócio](#regras-de-negócio)
 
@@ -38,6 +39,7 @@ O SocioEstudantil é uma aplicação web Django voltada ao setor de assistência
 | CSS / Layout | Bootstrap | 5.3.8 |
 | Ícones | Bootstrap Icons | 1.11.3 |
 | Gráficos | Chart.js | 4.4.4 |
+| Envio de e-mail | Mailtrap SMTP | — |
 | Automação (RPA) | BotCity | 1.1.0 |
 
 ---
@@ -80,6 +82,12 @@ Cinco modelos de relatório com cabeçalho IFAM e data de geração:
 - Botão para baixar um modelo de CSV preenchido com o cabeçalho correto (`/importar/modelo/`).
 - Cria turmas automaticamente caso não existam; ignora matrículas duplicadas.
 
+### Inscrições de E-mail (`/inscricoes/`)
+- Cadastro de e-mails para recebimento periódico de relatórios.
+- Frequência de envio (Diária, Semanal ou Mensal).
+- Seleção de quais relatórios (entre os 5 gerados em `/relatorio-pdf/`) cada e-mail deve receber.
+- O envio em si é feito pelo bot `automacoes/bot_envio_relatorios.py` (ver seção [Automação (BotCity)](#automação-botcity)).
+
 ---
 
 ## Estrutura do Projeto
@@ -107,7 +115,8 @@ SOCIOESTUDANTIL/
 │   ├── perfil.html              # Perfil e benefícios do aluno
 │   ├── beneficios.html          # CRUD de benefícios
 │   ├── importar.html            # Importação CSV
-│   └── relatorio_pdf.html       # Gerador de PDF
+│   ├── relatorio_pdf.html       # Gerador de PDF
+│   └── inscricoes.html          # Cadastro de e-mails para relatórios periódicos
 │
 ├── static/
 │   └── ifam_humaita_logo_inicio.png
@@ -116,9 +125,8 @@ SOCIOESTUDANTIL/
 │   └── banco.db                 # Banco de dados SQLite
 │
 └── automacoes/                  # Bots RPA (BotCity)
-    ├── requirements.txt         # Dependências dos bots (separadas da aplicação)
-    ├── bot_relatorio_vulneraveis.py
-    └── relatorios/              # PDFs gerados pelos bots
+    ├── bot_envio_relatorios.py  # Gera os PDFs e envia por e-mail às inscrições
+    └── relatorios/              # PDFs gerados pelo bot
 ```
 
 ---
@@ -137,6 +145,7 @@ O banco SQLite fica em `dados/banco.db` e é gerenciado diretamente pela camada 
 | `refeicoes` | Registro de refeições (aluno, data, hora, tipo) |
 | `perfil_socioeconomico` | Renda familiar, membros, situação de moradia |
 | `beneficios` | Auxílios financeiros com período de vigência |
+| `inscricoes_email` | E-mails cadastrados para recebimento periódico de relatórios |
 
 ### Diagrama simplificado
 
@@ -186,7 +195,51 @@ Acesse em: [http://localhost:8000](http://localhost:8000)
 | `/relatorio-pdf/` | Gerador de relatórios PDF |
 | `/importar/` | Importação de alunos via CSV |
 | `/importar/modelo/` | Download do modelo de CSV para importação |
+| `/inscricoes/` | Cadastro de e-mails para relatórios periódicos |
 | `/admin/` | Painel administrativo Django |
+
+---
+
+## Envio de E-mail (Mailtrap SMTP)
+
+O envio de e-mail é feito via SMTP do Mailtrap (`teste/settings.py`), usando o backend padrão do Django (`django.core.mail`).
+
+### Configuração
+
+1. Crie um API Token em [Settings → API Tokens](https://mailtrap.io/settings/api-tokens) no Mailtrap (acesso Admin).
+2. Defina a variável de ambiente com o token **antes** de rodar o servidor:
+
+```powershell
+$env:MAILTRAP_API_TOKEN = "seu_token_aqui"
+python manage.py runserver
+```
+
+3. Em `teste/settings.py`, ajuste `DEFAULT_FROM_EMAIL` para um endereço do seu **domínio verificado** no Mailtrap (Sending Domains) — sem isso o envio falha mesmo com o token correto.
+
+### Testar o envio
+
+Sem escrever nenhum código, usando o comando embutido do Django:
+
+```powershell
+python manage.py sendtestemail seu-email@exemplo.com
+```
+
+Depois de enviar, confira os e-mails em [mailtrap.io/sending/email_logs](https://mailtrap.io/sending/email_logs).
+
+### Uso no código
+
+Com as settings configuradas, qualquer view pode enviar e-mail com a API padrão do Django:
+
+```python
+from django.core.mail import send_mail
+
+send_mail(
+    "Assunto",
+    "Corpo da mensagem.",
+    None,  # usa DEFAULT_FROM_EMAIL
+    ["destinatario@exemplo.com"],
+)
+```
 
 ---
 
@@ -194,37 +247,42 @@ Acesse em: [http://localhost:8000](http://localhost:8000)
 
 O diretório `automacoes/` contém bots RPA construídos com [BotCity](https://botcity.dev/) que operam a aplicação pela própria interface web (como um operador faria), já que o sistema não expõe API.
 
-### `bot_relatorio_vulneraveis.py`
+### `bot_envio_relatorios.py`
 
-Gera automaticamente o **Relatório de Alunos em Situação de Vulnerabilidade** (PDF):
+Gera os relatórios PDF de `/relatorio-pdf/` e envia por e-mail (Mailtrap SMTP) aos endereços cadastrados em `/inscricoes/`, respeitando a frequência informada na linha de comando:
 
-1. Abre o Chrome e navega até `/relatorio-pdf/`.
-2. Clica no botão "Gerar PDF" do card "Alunos vulneráveis".
-3. Aguarda o download e salva o arquivo em `automacoes/relatorios/vulneraveis_AAAA-MM-DD.pdf`.
+1. Lê em `inscricoes_email` (via `src/banco.py`) quem está inscrito na frequência pedida e quais relatórios cada um escolheu.
+2. Abre o Chrome, navega até `/relatorio-pdf/` e clica em "Gerar PDF" — uma vez por tipo de relatório realmente necessário (nunca gera o mesmo PDF duas vezes, mesmo com vários inscritos pedindo o mesmo relatório).
+3. Salva cada PDF em `automacoes/relatorios/<tipo>_AAAA-MM-DD.pdf`.
+4. Envia um e-mail por inscrito, anexando só os relatórios que ele escolheu, usando as settings de e-mail do Django (mesma configuração da seção [Envio de E-mail](#envio-de-e-mail-mailtrap-smtp)).
 
 **Pré-requisitos**
 - Servidor Django rodando (`python manage.py runserver`).
 - Google Chrome instalado.
+- `MAILTRAP_API_TOKEN` definido e `DEFAULT_FROM_EMAIL` configurado (seção [Envio de E-mail](#envio-de-e-mail-mailtrap-smtp)).
+- Pelo menos uma inscrição cadastrada em `/inscricoes/` com a frequência que for executada.
 - Dependências do bot já incluídas no `requirements.txt` da raiz (um único `pip install -r requirements.txt` instala tudo, aplicação e bots).
 
 **Execução**
+
+O parâmetro `--frequencia` é obrigatório — cada execução processa só as inscrições daquela frequência:
 ```powershell
-venv\Scripts\python.exe automacoes\bot_relatorio_vulneraveis.py
+venv\Scripts\python.exe automacoes\bot_envio_relatorios.py --frequencia DIARIA
+venv\Scripts\python.exe automacoes\bot_envio_relatorios.py --frequencia SEMANAL
+venv\Scripts\python.exe automacoes\bot_envio_relatorios.py --frequencia MENSAL
 ```
+
 Por padrão o bot roda com o Chrome **visível**, para acompanhar cada passo. Para rodar escondido (ex.: agendado em servidor), defina a variável de ambiente antes:
 ```powershell
 $env:SOCIOESTUDANTIL_HEADLESS = "true"
-venv\Scripts\python.exe automacoes\bot_relatorio_vulneraveis.py
+venv\Scripts\python.exe automacoes\bot_envio_relatorios.py --frequencia MENSAL
 ```
 
 A URL da aplicação pode ser customizada via `SOCIOESTUDANTIL_URL` (padrão `http://localhost:8000`).
 
-**Nota técnica**: em Python 3.12+ o módulo `distutils` foi removido, mas uma dependência do BotCity (`undetected-chromedriver`) ainda o importa — o script contorna isso importando `setuptools` antes do `botcity.web`. O chromedriver correspondente à versão do Chrome instalado é baixado automaticamente via `webdriver-manager`.
+**Agendamento**: crie 3 tarefas no Agendador de Tarefas do Windows (uma para cada frequência), cada uma chamando o comando acima com o `--frequencia` e o horário/recorrência correspondente (ex.: a tarefa `SEMANAL` rodando toda segunda-feira).
 
-### Próximas automações planejadas
-- Envio automático do PDF gerado por e-mail.
-- Agendamento periódico (mensal) via Agendador de Tarefas do Windows ou BotCity Maestro.
-- Mesmo padrão aplicado ao relatório de benefícios ativos.
+**Nota técnica**: em Python 3.12+ o módulo `distutils` foi removido, mas uma dependência do BotCity (`undetected-chromedriver`) ainda o importa — o script contorna isso importando `setuptools` antes do `botcity.web`. O chromedriver correspondente à versão do Chrome instalado é baixado automaticamente via `webdriver-manager`. O bot também inicializa as settings do Django (`django.setup()`) só para reaproveitar a configuração de e-mail — ele não usa o ORM, os dados de inscrições são lidos via `src/banco.py` (SQL puro).
 
 ---
 
