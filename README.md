@@ -22,7 +22,7 @@ Sistema de gestão da assistência estudantil do **IFAM Campus Humaitá** (Insti
 
 O SocioEstudantil é uma aplicação web Django voltada ao setor de assistência estudantil. Centraliza três processos principais:
 
-1. **Controle de refeições** — registro via matrícula/leitura de crachá, com bloqueio de duplicatas no mesmo dia.
+1. **Controle de refeições** — registro e acompanhamento das refeições servidas, com bloqueio de duplicatas no mesmo dia.
 2. **Perfil socioeconômico** — cadastro de renda familiar, composição familiar e situação de moradia para identificar alunos em vulnerabilidade social (critério PNAES).
 3. **Gestão de benefícios** — administração de auxílios de transporte e moradia com histórico e controle de vigência.
 
@@ -35,7 +35,6 @@ O SocioEstudantil é uma aplicação web Django voltada ao setor de assistência
 | Backend | Django | 6.0.6 |
 | Banco de dados | SQLite3 | — |
 | Geração de PDF | ReportLab | 5.0.0 |
-| Processamento de imagem | Pillow | 12.2.0 |
 | CSS / Layout | Bootstrap | 5.3.8 |
 | Ícones | Bootstrap Icons | 1.11.3 |
 | Gráficos | Chart.js | 4.4.4 |
@@ -47,8 +46,10 @@ O SocioEstudantil é uma aplicação web Django voltada ao setor de assistência
 
 ### Painel (`/painel/`)
 - Cards com KPIs: total de alunos ativos, refeições servidas hoje, alunos com perfil cadastrado e alunos em vulnerabilidade.
-- Gráfico de barras com refeições nos últimos 30 dias.
-- Gráfico de rosca com distribuição de benefícios ativos.
+- Gráfico cruzado de vulnerabilidade x cobertura de benefícios (quantos alunos vulneráveis já recebem algum auxílio e quantos ainda não).
+- Gráfico de rosca com distribuição de benefícios ativos por tipo (quantidade e valor em R$).
+- Gráfico de barras com alunos por turma.
+- Gráfico de rosca com distribuição por situação de moradia.
 
 ### Lista de Alunos (`/alunos/`)
 - Tabela com nome, matrícula e turma.
@@ -60,27 +61,23 @@ O SocioEstudantil é uma aplicação web Django voltada ao setor de assistência
 - Cálculo automático da renda per capita e classificação de vulnerabilidade.
 - Listagem dos benefícios ativos do aluno.
 
-### Leitor de Refeições (`/leitor/`)
-- Campo de entrada para matrícula (compatível com leitura de código de barras / crachá).
-- Retorno visual imediato:
-  - **Verde** — refeição registrada com sucesso.
-  - **Amarelo** — refeição já registrada hoje.
-  - **Vermelho** — aluno não encontrado.
-
 ### Benefícios (`/beneficios/`)
 - Cadastro, edição e encerramento de benefícios (TRANSPORTE, MORADIA).
 - Campos: aluno, tipo, valor (R$), período de vigência e observações.
 - Filtro entre benefícios ativos e encerrados.
 
 ### Relatórios PDF (`/relatorio-pdf/`)
-Três modelos de relatório com cabeçalho IFAM e data de geração:
-- **Refeições** — registros por período.
+Cinco modelos de relatório com cabeçalho IFAM e data de geração:
 - **Benefícios Ativos** — auxílios vigentes com valores e períodos.
 - **Alunos em Vulnerabilidade** — alunos que atendem ao critério PNAES.
+- **Alunos por Turma** — quantidade de alunos ativos em cada turma.
+- **Sem Perfil Cadastrado** — alunos ativos que ainda não têm perfil socioeconômico preenchido.
+- **Vulneráveis sem Benefício** — cruza vulnerabilidade com benefícios ativos: lista de prioridade para atendimento.
 
 ### Importação CSV (`/importar/`)
 - Cadastro em lote de alunos a partir de arquivo CSV.
 - Colunas esperadas: `matricula`, `nome`, `turma`.
+- Botão para baixar um modelo de CSV preenchido com o cabeçalho correto (`/importar/modelo/`).
 - Cria turmas automaticamente caso não existam; ignora matrículas duplicadas.
 
 ---
@@ -109,16 +106,14 @@ SOCIOESTUDANTIL/
 │   ├── alunos.html              # Lista de alunos
 │   ├── perfil.html              # Perfil e benefícios do aluno
 │   ├── beneficios.html          # CRUD de benefícios
-│   ├── leitor.html              # Scanner de refeições
 │   ├── importar.html            # Importação CSV
-│   ├── relatorio.html           # Exportação CSV (legado)
 │   └── relatorio_pdf.html       # Gerador de PDF
 │
 ├── static/
 │   └── ifam_humaita_logo_inicio.png
 │
 ├── dados/
-│   └── banco_ticket.db          # Banco de dados SQLite
+│   └── banco.db                 # Banco de dados SQLite
 │
 └── automacoes/                  # Bots RPA (BotCity)
     ├── requirements.txt         # Dependências dos bots (separadas da aplicação)
@@ -130,7 +125,7 @@ SOCIOESTUDANTIL/
 
 ## Banco de Dados
 
-O banco SQLite fica em `dados/banco_ticket.db` e é gerenciado diretamente pela camada `src/banco.py` (sem uso do ORM do Django).
+O banco SQLite fica em `dados/banco.db` e é gerenciado diretamente pela camada `src/banco.py` (sem uso do ORM do Django).
 
 ### Tabelas
 
@@ -187,11 +182,10 @@ Acesse em: [http://localhost:8000](http://localhost:8000)
 | `/painel/` | Dashboard com KPIs e gráficos |
 | `/alunos/` | Lista de alunos |
 | `/alunos/<id>/perfil/` | Perfil socioeconômico do aluno |
-| `/leitor/` | Scanner de refeições |
 | `/beneficios/` | Gestão de benefícios |
-| `/relatorio/` | Exportação CSV de refeições (legado) |
 | `/relatorio-pdf/` | Gerador de relatórios PDF |
 | `/importar/` | Importação de alunos via CSV |
+| `/importar/modelo/` | Download do modelo de CSV para importação |
 | `/admin/` | Painel administrativo Django |
 
 ---
@@ -230,7 +224,7 @@ A URL da aplicação pode ser customizada via `SOCIOESTUDANTIL_URL` (padrão `ht
 ### Próximas automações planejadas
 - Envio automático do PDF gerado por e-mail.
 - Agendamento periódico (mensal) via Agendador de Tarefas do Windows ou BotCity Maestro.
-- Mesmo padrão aplicado aos relatórios de refeições e benefícios ativos.
+- Mesmo padrão aplicado ao relatório de benefícios ativos.
 
 ---
 
@@ -246,12 +240,6 @@ vulneravel = renda_per_capita <= salario_minimo * 1.5
 ```
 
 Valor de referência (2025): **R$ 1.518,00** × 1,5 = **R$ 2.277,00**
-
-### Controle de Refeições
-
-- Apenas uma refeição por aluno por dia é permitida.
-- Tentativas duplicadas retornam aviso sem criar novo registro.
-- O tipo padrão de refeição é `ALMOCO`.
 
 ### Situações de Moradia
 

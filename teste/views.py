@@ -45,42 +45,14 @@ def importar_csv(request):
     return render(request, "importar.html", {"mensagem": mensagem})
 
 
-def leitor(request):
-    mensagem = ""
-    cor = "secondary"
-    nome = ""
-    if request.method == "POST":
-        matricula = request.POST.get("matricula", "").strip()
-        aluno = buscar_aluno_matricula(matricula)
-        if aluno is None:
-            mensagem = "Aluno não encontrado."
-            cor = "danger"
-        else:
-            id_aluno = aluno[0]
-            nome     = aluno[2]
-            if aluno_ja_almocou_hoje(id_aluno):
-                mensagem = "Aluno já retirou a refeição hoje."
-                cor = "warning"
-            else:
-                registrar_refeicao(id_aluno)
-                mensagem = "Pode retirar a refeição."
-                cor = "success"
-    return render(request, "leitor.html", {"mensagem": mensagem, "cor": cor, "nome": nome})
-
-
-def relatorio(request):
-    if request.method == "POST":
-        data_inicial = request.POST["data_inicial"]
-        data_final   = request.POST["data_final"]
-        registros    = listar_refeicoes_periodo(data_inicial, data_final)
-        response     = HttpResponse(content_type="text/csv")
-        response["Content-Disposition"] = 'attachment; filename="relatorio.csv"'
-        writer = csv.writer(response)
-        writer.writerow(["Matricula", "Nome", "Turma", "Data", "Hora"])
-        for linha in registros:
-            writer.writerow(linha)
-        return response
-    return render(request, "relatorio.html")
+def modelo_csv(request):
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="modelo_importacao_alunos.csv"'
+    writer = csv.writer(response)
+    writer.writerow(["matricula", "nome", "turma"])
+    writer.writerow(["2024001", "João da Silva", "1º Ano Informática"])
+    writer.writerow(["2024002", "Maria Oliveira", "1º Ano Informática"])
+    return response
 
 
 # ======================================================
@@ -186,23 +158,35 @@ def beneficios(request):
 # ======================================================
 
 def painel(request):
-    refeicoes_por_dia = stats_refeicoes_por_dia(30)
-    labels_ref        = [r[0] for r in refeicoes_por_dia]
-    dados_ref         = [r[1] for r in refeicoes_por_dia]
-
     beneficios_ativos = stats_beneficios_ativos()
     labels_ben        = [TIPOS_BENEFICIO.get(b[0], b[0]) for b in beneficios_ativos]
     dados_ben_qtd     = [b[1] for b in beneficios_ativos]
+    dados_ben_valor   = [round(b[2] or 0, 2) for b in beneficios_ativos]
+
+    turmas_alunos  = stats_alunos_por_turma()
+    labels_turma   = [t[0] for t in turmas_alunos]
+    dados_turma    = [t[1] for t in turmas_alunos]
+
+    moradia        = stats_situacao_moradia()
+    labels_moradia = [SITUACOES_MORADIA.get(m[0], m[0]) for m in moradia]
+    dados_moradia  = [m[1] for m in moradia]
+
+    vulneraveis_com_beneficio, vulneraveis_sem_beneficio = stats_vulnerabilidade_x_beneficio()
 
     return render(request, "painel.html", {
         "total_alunos":       stats_total_alunos(),
         "refeicoes_hoje":     stats_total_refeicoes_hoje(),
         "alunos_com_perfil":  stats_alunos_com_perfil(),
         "alunos_vulneraveis": stats_alunos_vulneraveis(),
-        "labels_refeicoes":   json.dumps(labels_ref),
-        "dados_refeicoes":    json.dumps(dados_ref),
         "labels_beneficios":  json.dumps(labels_ben),
         "dados_beneficios":   json.dumps(dados_ben_qtd),
+        "dados_beneficios_valor": json.dumps(dados_ben_valor),
+        "labels_turma":       json.dumps(labels_turma),
+        "dados_turma":        json.dumps(dados_turma),
+        "labels_moradia":     json.dumps(labels_moradia),
+        "dados_moradia":      json.dumps(dados_moradia),
+        "vulneraveis_com_beneficio": vulneraveis_com_beneficio,
+        "vulneraveis_sem_beneficio": vulneraveis_sem_beneficio,
     })
 
 
@@ -225,7 +209,7 @@ def _estilo_tabela():
 
 def relatorio_pdf(request):
     if request.method == "POST":
-        tipo         = request.POST.get("tipo_relatorio", "refeicoes")
+        tipo         = request.POST.get("tipo_relatorio", "beneficios")
         data_inicial = request.POST.get("data_inicial", "")
         data_final   = request.POST.get("data_final", "")
 
@@ -247,19 +231,7 @@ def relatorio_pdf(request):
             Spacer(1, 0.5*cm),
         ]
 
-        if tipo == "refeicoes":
-            elementos.append(Paragraph(
-                f"Relatório de Refeições: {data_inicial} a {data_final}",
-                styles['Heading2']
-            ))
-            elementos.append(Spacer(1, 0.3*cm))
-            registros = listar_refeicoes_periodo(data_inicial, data_final)
-            elementos.append(Paragraph(f"Total: {len(registros)} refeições", styles['Normal']))
-            elementos.append(Spacer(1, 0.2*cm))
-            dados = [["Matrícula", "Nome", "Turma", "Data", "Hora"]]
-            dados += [list(r) for r in registros]
-
-        elif tipo == "beneficios":
+        if tipo == "beneficios":
             elementos.append(Paragraph("Relatório de Benefícios Ativos", styles['Heading2']))
             elementos.append(Spacer(1, 0.3*cm))
             registros = [r for r in listar_beneficios() if r[7] == 1]
@@ -295,6 +267,45 @@ def relatorio_pdf(request):
                     r[0], r[1], r[2],
                     f"R$ {r[3]:.2f}", str(r[4]), f"R$ {r[5]:.2f}"
                 ])
+
+        elif tipo == "alunos_turma":
+            elementos.append(Paragraph("Relatório de Alunos por Turma", styles['Heading2']))
+            elementos.append(Spacer(1, 0.3*cm))
+            registros = stats_alunos_por_turma()
+            elementos.append(Paragraph(f"Total: {len(registros)} turmas", styles['Normal']))
+            elementos.append(Spacer(1, 0.2*cm))
+            dados = [["Turma", "Alunos ativos"]]
+            dados += [[r[0], str(r[1])] for r in registros]
+
+        elif tipo == "sem_perfil":
+            elementos.append(Paragraph(
+                "Relatório de Alunos sem Perfil Socioeconômico Cadastrado",
+                styles['Heading2']
+            ))
+            elementos.append(Spacer(1, 0.3*cm))
+            registros = listar_alunos_sem_perfil()
+            elementos.append(Paragraph(f"Total: {len(registros)} alunos", styles['Normal']))
+            elementos.append(Spacer(1, 0.2*cm))
+            dados = [["Nome", "Matrícula", "Turma"]]
+            dados += [list(r) for r in registros]
+
+        elif tipo == "vulneraveis_sem_beneficio":
+            elementos.append(Paragraph(
+                "Relatório de Alunos Vulneráveis sem Benefício Ativo",
+                styles['Heading2']
+            ))
+            elementos.append(Spacer(1, 0.3*cm))
+            registros = listar_vulneraveis_sem_beneficio()
+            elementos.append(Paragraph(
+                "Alunos em situação de vulnerabilidade (critério PNAES) que ainda não "
+                "recebem nenhum auxílio ativo — prioridade para atendimento.",
+                styles['Normal']
+            ))
+            elementos.append(Paragraph(f"Total: {len(registros)} alunos", styles['Normal']))
+            elementos.append(Spacer(1, 0.2*cm))
+            dados = [["Nome", "Matrícula", "Turma", "Renda p.c."]]
+            for r in registros:
+                dados.append([r[0], r[1], r[2], f"R$ {r[3]:.2f}"])
 
         if len(dados) > 1:
             tabela = Table(dados, repeatRows=1)

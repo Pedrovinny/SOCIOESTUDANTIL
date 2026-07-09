@@ -7,7 +7,7 @@ from datetime import datetime
 # ======================================================
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-CAMINHO_BANCO = BASE_DIR / "dados" / "banco_ticket.db"
+CAMINHO_BANCO = BASE_DIR / "dados" / "banco.db"
 CAMINHO_BANCO.parent.mkdir(exist_ok=True)
 
 SALARIO_MINIMO = 1518.00          # valor 2025 — ajuste quando mudar
@@ -96,21 +96,6 @@ def criar_tabelas():
 
 
 # ======================================================
-# CAMPUS
-# ======================================================
-
-def inserir_campus(nome, sigla):
-    with conectar() as conn:
-        conn.execute("INSERT INTO campus(nome,sigla) VALUES(?,?)", (nome, sigla))
-        conn.commit()
-
-
-def listar_campus():
-    with conectar() as conn:
-        return conn.execute("SELECT * FROM campus ORDER BY nome").fetchall()
-
-
-# ======================================================
 # TURMAS
 # ======================================================
 
@@ -121,16 +106,6 @@ def inserir_turma(nome, curso, ano, campus_id):
             (nome, curso, ano, campus_id)
         )
         conn.commit()
-
-
-def listar_turmas():
-    with conectar() as conn:
-        return conn.execute("""
-            SELECT t.id_turma, t.nome, t.curso, t.ano, c.nome
-            FROM turmas t
-            INNER JOIN campus c ON c.id_campus = t.campus_id
-            ORDER BY t.nome
-        """).fetchall()
 
 
 def buscar_turma_nome(nome):
@@ -175,66 +150,6 @@ def buscar_aluno_id(aluno_id):
         return conn.execute(
             "SELECT * FROM alunos WHERE id_aluno=?", (aluno_id,)
         ).fetchone()
-
-
-# ======================================================
-# REFEIÇÕES
-# ======================================================
-
-def registrar_refeicao(aluno_id, tipo="ALMOCO"):
-    agora = datetime.now()
-    data = agora.strftime("%Y-%m-%d")
-    hora = agora.strftime("%H:%M:%S")
-    with conectar() as conn:
-        conn.execute(
-            "INSERT INTO refeicoes(aluno_id,data,hora,tipo) VALUES(?,?,?,?)",
-            (aluno_id, data, hora, tipo)
-        )
-        conn.commit()
-
-
-def listar_refeicoes():
-    with conectar() as conn:
-        return conn.execute("""
-            SELECT a.nome, a.matricula, r.data, r.hora, r.tipo
-            FROM refeicoes r
-            INNER JOIN alunos a ON r.aluno_id = a.id_aluno
-            ORDER BY r.data DESC, r.hora DESC
-        """).fetchall()
-
-
-def listar_refeicoes_hoje():
-    hoje = datetime.now().strftime("%Y-%m-%d")
-    with conectar() as conn:
-        return conn.execute("""
-            SELECT a.nome, a.matricula, r.hora
-            FROM refeicoes r
-            INNER JOIN alunos a ON r.aluno_id = a.id_aluno
-            WHERE r.data=?
-            ORDER BY r.hora
-        """, (hoje,)).fetchall()
-
-
-def aluno_ja_almocou_hoje(aluno_id):
-    hoje = datetime.now().strftime("%Y-%m-%d")
-    with conectar() as conn:
-        cursor = conn.execute("""
-            SELECT COUNT(*) FROM refeicoes
-            WHERE aluno_id = ? AND data = ?
-        """, (aluno_id, hoje))
-        return cursor.fetchone()[0] > 0
-
-
-def listar_refeicoes_periodo(data_inicial, data_final):
-    with conectar() as conn:
-        return conn.execute("""
-            SELECT a.matricula, a.nome, t.nome, r.data, r.hora
-            FROM refeicoes r
-            INNER JOIN alunos a ON r.aluno_id = a.id_aluno
-            INNER JOIN turmas t ON a.turma_id = t.id_turma
-            WHERE r.data BETWEEN ? AND ?
-            ORDER BY r.data, r.hora
-        """, (data_inicial, data_final)).fetchall()
 
 
 # ======================================================
@@ -305,6 +220,37 @@ def listar_alunos_vulneraveis():
         """, (limite,)).fetchall()
 
 
+def listar_alunos_sem_perfil():
+    with conectar() as conn:
+        return conn.execute("""
+            SELECT a.nome, a.matricula, t.nome
+            FROM alunos a
+            INNER JOIN turmas t ON a.turma_id = t.id_turma
+            LEFT JOIN perfil_socioeconomico p ON p.aluno_id = a.id_aluno
+            WHERE a.ativo = 1 AND p.id_perfil IS NULL
+            ORDER BY a.nome
+        """).fetchall()
+
+
+def listar_vulneraveis_sem_beneficio():
+    """Cruza vulnerabilidade com benefícios: alunos vulneráveis que hoje
+    não recebem nenhum auxílio ativo — lista de prioridade para atendimento."""
+    limite = SALARIO_MINIMO * LIMITE_VULNERABILIDADE
+    with conectar() as conn:
+        return conn.execute("""
+            SELECT
+                a.nome, a.matricula, t.nome,
+                ROUND(p.renda_familiar / p.num_membros, 2) AS renda_pc
+            FROM perfil_socioeconomico p
+            INNER JOIN alunos a ON p.aluno_id = a.id_aluno
+            INNER JOIN turmas t ON a.turma_id  = t.id_turma
+            LEFT JOIN beneficios b ON b.aluno_id = a.id_aluno AND b.ativo = 1
+            WHERE (p.renda_familiar / p.num_membros) <= ?
+              AND b.id_beneficio IS NULL
+            ORDER BY renda_pc ASC
+        """, (limite,)).fetchall()
+
+
 # ======================================================
 # BENEFÍCIOS
 # ======================================================
@@ -367,17 +313,6 @@ def encerrar_beneficio(id_beneficio):
 # DADOS PARA O PAINEL
 # ======================================================
 
-def stats_refeicoes_por_dia(dias=30):
-    with conectar() as conn:
-        return conn.execute("""
-            SELECT data, COUNT(*) AS total
-            FROM refeicoes
-            WHERE data >= date('now', ? || ' days')
-            GROUP BY data
-            ORDER BY data
-        """, (f'-{dias}',)).fetchall()
-
-
 def stats_beneficios_ativos():
     with conectar() as conn:
         return conn.execute("""
@@ -417,6 +352,48 @@ def stats_alunos_vulneraveis():
             SELECT COUNT(*) FROM perfil_socioeconomico
             WHERE (renda_familiar / num_membros) <= ?
         """, (limite,)).fetchone()[0]
+
+
+def stats_alunos_por_turma():
+    with conectar() as conn:
+        return conn.execute("""
+            SELECT t.nome, COUNT(*) AS total
+            FROM alunos a
+            INNER JOIN turmas t ON a.turma_id = t.id_turma
+            WHERE a.ativo = 1
+            GROUP BY t.nome
+            ORDER BY total DESC
+        """).fetchall()
+
+
+def stats_situacao_moradia():
+    with conectar() as conn:
+        return conn.execute("""
+            SELECT situacao_moradia, COUNT(*) AS total
+            FROM perfil_socioeconomico
+            GROUP BY situacao_moradia
+            ORDER BY total DESC
+        """).fetchall()
+
+
+def stats_vulnerabilidade_x_beneficio():
+    """Cruza vulnerabilidade socioeconômica com cobertura de benefícios ativos.
+    Retorna (qtd_com_beneficio, qtd_sem_beneficio) entre os alunos vulneráveis."""
+    limite = SALARIO_MINIMO * LIMITE_VULNERABILIDADE
+    with conectar() as conn:
+        total_vulneraveis = conn.execute("""
+            SELECT COUNT(*) FROM perfil_socioeconomico
+            WHERE (renda_familiar / num_membros) <= ?
+        """, (limite,)).fetchone()[0]
+
+        com_beneficio = conn.execute("""
+            SELECT COUNT(DISTINCT p.aluno_id)
+            FROM perfil_socioeconomico p
+            INNER JOIN beneficios b ON b.aluno_id = p.aluno_id AND b.ativo = 1
+            WHERE (p.renda_familiar / p.num_membros) <= ?
+        """, (limite,)).fetchone()[0]
+
+        return com_beneficio, total_vulneraveis - com_beneficio
 
 
 # ======================================================

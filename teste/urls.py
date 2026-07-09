@@ -7,8 +7,7 @@ urlpatterns = [
     # existentes
     path("",                views.home,             name="home"),
     path("importar/",       views.importar_csv,     name="importar_csv"),
-    path("leitor/",         views.leitor,            name="leitor"),
-    path("relatorio/",      views.relatorio,         name="relatorio"),
+    path("importar/modelo/", views.modelo_csv,       name="modelo_csv"),
     # novos
     path("alunos/",                        views.listar_alunos_view, name="listar_alunos"),
     path("alunos/<int:aluno_id>/perfil/",  views.perfil,             name="perfil"),
