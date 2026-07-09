@@ -21,11 +21,14 @@ Sistema de gestão da assistência estudantil do **IFAM Campus Humaitá** (Insti
 
 ## Visão Geral
 
-O SocioEstudantil é uma aplicação web Django voltada ao setor de assistência estudantil. Centraliza três processos principais:
+O SocioEstudantil é uma aplicação web Django voltada ao setor de assistência estudantil. Centraliza quatro processos principais:
 
-1. **Controle de refeições** — registro e acompanhamento das refeições servidas, com bloqueio de duplicatas no mesmo dia.
+1. **Controle de refeições** — acompanhamento das refeições servidas (histórico e KPI no painel).
 2. **Perfil socioeconômico** — cadastro de renda familiar, composição familiar e situação de moradia para identificar alunos em vulnerabilidade social (critério PNAES).
 3. **Gestão de benefícios** — administração de auxílios de transporte e moradia com histórico e controle de vigência.
+4. **Relatórios e distribuição por e-mail** — 5 relatórios em PDF gerados sob demanda, mais um bot que os gera e envia automaticamente por e-mail (Mailtrap) a uma lista de inscritos, respeitando a frequência (diária/semanal/mensal) e os relatórios que cada um escolheu receber.
+
+O painel (`/painel/`) cruza esses dados entre si — por exemplo, mostrando quantos alunos vulneráveis já recebem algum benefício e quantos ainda não —, e não só exibe números isolados por área.
 
 ---
 
@@ -69,12 +72,15 @@ O SocioEstudantil é uma aplicação web Django voltada ao setor de assistência
 - Filtro entre benefícios ativos e encerrados.
 
 ### Relatórios PDF (`/relatorio-pdf/`)
-Cinco modelos de relatório com cabeçalho IFAM e data de geração:
+Cinco modelos de relatório, todos com o mesmo layout: cabeçalho com logo do IFAM, título, caixa de resumo destacada com o total de registros, tabela com colunas alinhadas por tipo de dado (texto à esquerda, valores/números à direita ou centralizados), e rodapé com data de geração e numeração de página em todas as páginas. Relatórios sem nenhum registro mostram uma mensagem "Nenhum registro encontrado" em vez de uma tabela vazia.
+
 - **Benefícios Ativos** — auxílios vigentes com valores e períodos.
 - **Alunos em Vulnerabilidade** — alunos que atendem ao critério PNAES.
 - **Alunos por Turma** — quantidade de alunos ativos em cada turma.
 - **Sem Perfil Cadastrado** — alunos ativos que ainda não têm perfil socioeconômico preenchido.
 - **Vulneráveis sem Benefício** — cruza vulnerabilidade com benefícios ativos: lista de prioridade para atendimento.
+
+Os mesmos 5 tipos (identificados pelo mesmo código: `beneficios`, `vulneraveis`, `alunos_turma`, `sem_perfil`, `vulneraveis_sem_beneficio`) são os que aparecem como opção de checkbox em `/inscricoes/` e os que o bot de e-mail sabe gerar.
 
 ### Importação CSV (`/importar/`)
 - Cadastro em lote de alunos a partir de arquivo CSV.
@@ -98,12 +104,12 @@ SOCIOESTUDANTIL/
 ├── requirements.txt             # Dependências Python
 │
 ├── src/
-│   └── banco.py                 # Camada de acesso ao banco (50+ funções)
+│   └── banco.py                 # Camada de acesso ao banco — SQL puro, sem ORM (31 funções)
 │
 ├── teste/                       # Pacote Django principal
-│   ├── settings.py              # Configurações
+│   ├── settings.py              # Configurações (inclui Email/Mailtrap)
 │   ├── urls.py                  # Roteamento de URLs
-│   ├── views.py                 # Lógica das views (~316 linhas)
+│   ├── views.py                 # Lógica das views, incl. geração de PDF (~460 linhas)
 │   └── templatetags/
 │       └── dict_extras.py       # Filtro customizado get_item
 │
@@ -116,7 +122,9 @@ SOCIOESTUDANTIL/
 │   ├── beneficios.html          # CRUD de benefícios
 │   ├── importar.html            # Importação CSV
 │   ├── relatorio_pdf.html       # Gerador de PDF
-│   └── inscricoes.html          # Cadastro de e-mails para relatórios periódicos
+│   ├── inscricoes.html          # Cadastro de e-mails para relatórios periódicos
+│   └── email/
+│       └── relatorio_email.html # Corpo HTML do e-mail enviado pelo bot
 │
 ├── static/
 │   └── ifam_humaita_logo_inicio.png
@@ -126,6 +134,7 @@ SOCIOESTUDANTIL/
 │
 └── automacoes/                  # Bots RPA (BotCity)
     ├── bot_envio_relatorios.py  # Gera os PDFs e envia por e-mail às inscrições
+    ├── executar_envio.ps1       # Wrapper p/ Agendador de Tarefas (sobe o servidor + roda o bot)
     └── relatorios/              # PDFs gerados pelo bot
 ```
 
@@ -153,7 +162,11 @@ O banco SQLite fica em `dados/banco.db` e é gerenciado diretamente pela camada 
 campus ──< turmas ──< alunos ──< refeicoes
                                  alunos ──< perfil_socioeconomico (1:1)
                                  alunos ──< beneficios
+
+inscricoes_email  (tabela independente — só e-mail, sem vínculo com alunos)
 ```
+
+`inscricoes_email` não referencia nenhuma outra tabela: é uma lista de e-mails externos (coordenadores, responsáveis etc.) que querem receber relatórios, não uma relação com os alunos cadastrados.
 
 ---
 
@@ -280,7 +293,30 @@ venv\Scripts\python.exe automacoes\bot_envio_relatorios.py --frequencia MENSAL
 
 A URL da aplicação pode ser customizada via `SOCIOESTUDANTIL_URL` (padrão `http://localhost:8000`).
 
-**Agendamento**: crie 3 tarefas no Agendador de Tarefas do Windows (uma para cada frequência), cada uma chamando o comando acima com o `--frequencia` e o horário/recorrência correspondente (ex.: a tarefa `SEMANAL` rodando toda segunda-feira).
+### `executar_envio.ps1` — agendamento automático
+
+Wrapper pensado para o Agendador de Tarefas do Windows: sobe o servidor Django em segundo plano se ele ainda não estiver de pé, espera ficar pronto e então roda `bot_envio_relatorios.py` com a frequência recebida.
+
+**1. Definir o token permanentemente** (uma vez só — variável de sessão como `$env:MAILTRAP_API_TOKEN` não é vista pelo Agendador de Tarefas):
+```powershell
+setx MAILTRAP_API_TOKEN "seu_token_aqui"
+```
+Feche e reabra o terminal depois disso para confirmar que pegou (`echo $env:MAILTRAP_API_TOKEN`).
+
+**2. Testar o wrapper manualmente:**
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File automacoes\executar_envio.ps1 -Frequencia DIARIA
+```
+
+**3. Criar as 3 tarefas agendadas** (ajuste caminho, horário e dia como preferir):
+```powershell
+schtasks /create /tn "SocioEstudantil - Envio Diario"   /tr "powershell.exe -ExecutionPolicy Bypass -File D:\IFAM_2026\SOCIOESTUDANTIL\automacoes\executar_envio.ps1 -Frequencia DIARIA"   /sc daily            /st 07:00
+schtasks /create /tn "SocioEstudantil - Envio Semanal"  /tr "powershell.exe -ExecutionPolicy Bypass -File D:\IFAM_2026\SOCIOESTUDANTIL\automacoes\executar_envio.ps1 -Frequencia SEMANAL"  /sc weekly /d MON /st 07:00
+schtasks /create /tn "SocioEstudantil - Envio Mensal"   /tr "powershell.exe -ExecutionPolicy Bypass -File D:\IFAM_2026\SOCIOESTUDANTIL\automacoes\executar_envio.ps1 -Frequencia MENSAL"   /sc monthly /d 1  /st 07:00
+```
+Para remover uma tarefa depois: `schtasks /delete /tn "SocioEstudantil - Envio Diario" /f`.
+
+**Nota**: `manage.py runserver` é um servidor de desenvolvimento — funciona bem para este uso (só precisa estar de pé no momento do envio), mas não é o recomendado para expor a aplicação publicamente na internet.
 
 **Nota técnica**: em Python 3.12+ o módulo `distutils` foi removido, mas uma dependência do BotCity (`undetected-chromedriver`) ainda o importa — o script contorna isso importando `setuptools` antes do `botcity.web`. O chromedriver correspondente à versão do Chrome instalado é baixado automaticamente via `webdriver-manager`. O bot também inicializa as settings do Django (`django.setup()`) só para reaproveitar a configuração de e-mail — ele não usa o ORM, os dados de inscrições são lidos via `src/banco.py` (SQL puro).
 
@@ -315,3 +351,17 @@ Valor de referência (2025): **R$ 1.518,00** × 1,5 = **R$ 2.277,00**
 |--------|-----------|
 | `TRANSPORTE` | Auxílio transporte |
 | `MORADIA` | Auxílio moradia |
+
+### Inscrições de E-mail
+
+- Um e-mail só pode ter **uma** inscrição (`UNIQUE` no banco); tentar cadastrar o mesmo e-mail duas vezes é bloqueado com aviso, não sobrescreve a inscrição anterior.
+- É obrigatório marcar **pelo menos um** tipo de relatório ao cadastrar.
+- Frequências possíveis — cada inscrição tem exatamente uma:
+
+  | Código | Descrição |
+  |--------|-----------|
+  | `DIARIA` | Diária |
+  | `SEMANAL` | Semanal |
+  | `MENSAL` | Mensal |
+
+- A frequência escolhida só tem efeito quando o bot (`automacoes/bot_envio_relatorios.py`) é executado com o `--frequencia` correspondente — o cadastro por si só não agenda nada (ver [Automação (BotCity)](#automação-botcity)).
