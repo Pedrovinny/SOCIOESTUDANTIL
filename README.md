@@ -1,6 +1,6 @@
 # SocioEstudantil
 
-Sistema de gestão da assistência estudantil do **IFAM Campus Humaitá** (Instituto Federal do Amazonas). Permite acompanhar distribuição de refeições, perfis socioeconômicos e benefícios financeiros dos alunos conforme os critérios do PNAES.
+Sistema de gestão da assistência estudantil do **IFAM Campus Humaitá** (Instituto Federal do Amazonas). Permite acompanhar perfis socioeconômicos e benefícios financeiros dos alunos conforme os critérios do PNAES, com relatórios e distribuição automática por e-mail.
 
 ---
 
@@ -21,14 +21,15 @@ Sistema de gestão da assistência estudantil do **IFAM Campus Humaitá** (Insti
 
 ## Visão Geral
 
-O SocioEstudantil é uma aplicação web Django voltada ao setor de assistência estudantil. Centraliza quatro processos principais:
+O SocioEstudantil é uma aplicação web Django voltada ao setor de assistência estudantil. Centraliza três processos principais:
 
-1. **Controle de refeições** — acompanhamento das refeições servidas (histórico e KPI no painel).
-2. **Perfil socioeconômico** — cadastro de renda familiar, composição familiar e situação de moradia para identificar alunos em vulnerabilidade social (critério PNAES).
-3. **Gestão de benefícios** — administração de auxílios de transporte e moradia com histórico e controle de vigência.
-4. **Relatórios e distribuição por e-mail** — 5 relatórios em PDF gerados sob demanda, mais um bot que os gera e envia automaticamente por e-mail (Mailtrap) a uma lista de inscritos, respeitando a frequência (diária/semanal/mensal) e os relatórios que cada um escolheu receber.
+1. **Perfil socioeconômico** — cadastro de renda familiar, composição familiar e situação de moradia para identificar alunos em vulnerabilidade social (critério PNAES).
+2. **Gestão de benefícios** — administração de auxílios de transporte e moradia com histórico e controle de vigência.
+3. **Relatórios e distribuição por e-mail** — 5 relatórios em PDF gerados sob demanda, mais um bot que os gera e envia automaticamente por e-mail (Mailtrap) a uma lista de inscritos, respeitando a frequência (diária/semanal/mensal) e os relatórios que cada um escolheu receber.
 
 O painel (`/painel/`) cruza esses dados entre si — por exemplo, mostrando quantos alunos vulneráveis já recebem algum benefício e quantos ainda não —, e não só exibe números isolados por área.
+
+> **Nota**: existe uma tabela `refeicoes` e um card "Refeições hoje" no painel, resquícios de uma funcionalidade de controle de refeições que foi removida (não há mais nenhuma tela ou botão que registre uma refeição). Esse card hoje é estático. Veja a seção [Banco de Dados](#banco-de-dados) e considere remover se não for reativar essa funcionalidade.
 
 ---
 
@@ -50,7 +51,7 @@ O painel (`/painel/`) cruza esses dados entre si — por exemplo, mostrando quan
 ## Funcionalidades
 
 ### Painel (`/painel/`)
-- Cards com KPIs: total de alunos ativos, refeições servidas hoje, alunos com perfil cadastrado e alunos em vulnerabilidade.
+- Cards com KPIs: total de alunos ativos, alunos com perfil cadastrado, alunos em vulnerabilidade e refeições servidas hoje (este último estático — ver nota em [Visão Geral](#visão-geral)).
 - Gráfico cruzado de vulnerabilidade x cobertura de benefícios (quantos alunos vulneráveis já recebem algum auxílio e quantos ainda não).
 - Gráfico de rosca com distribuição de benefícios ativos por tipo (quantidade e valor em R$).
 - Gráfico de barras com alunos por turma.
@@ -258,16 +259,18 @@ send_mail(
 
 ## Automação (BotCity)
 
-O diretório `automacoes/` contém bots RPA construídos com [BotCity](https://botcity.dev/) que operam a aplicação pela própria interface web (como um operador faria), já que o sistema não expõe API.
+O diretório `automacoes/` contém bots RPA construídos com [BotCity](https://botcity.dev/) que operam a aplicação pela própria interface web (como um operador faria), já que o sistema não expõe API — a única forma de gerar um relatório é preenchendo o formulário de `/relatorio-pdf/` no navegador.
+
+**Onde o BotCity entra, exatamente**: só na etapa 2 abaixo (abrir o Chrome e clicar em "Gerar PDF"), via `botcity.web.WebBot`. O envio do e-mail (etapa 4) **não** usa BotCity — é feito pelo `django.core.mail`, reaproveitando a configuração SMTP do Mailtrap (seção [Envio de E-mail](#envio-de-e-mail-mailtrap-smtp)). O BotCity automatiza só a parte que não tem outra porta de entrada (a geração do PDF); o resto do fluxo é Python/Django comum.
 
 ### `bot_envio_relatorios.py`
 
 Gera os relatórios PDF de `/relatorio-pdf/` e envia por e-mail (Mailtrap SMTP) aos endereços cadastrados em `/inscricoes/`, respeitando a frequência informada na linha de comando:
 
 1. Lê em `inscricoes_email` (via `src/banco.py`) quem está inscrito na frequência pedida e quais relatórios cada um escolheu.
-2. Abre o Chrome, navega até `/relatorio-pdf/` e clica em "Gerar PDF" — uma vez por tipo de relatório realmente necessário (nunca gera o mesmo PDF duas vezes, mesmo com vários inscritos pedindo o mesmo relatório).
+2. **(BotCity)** Abre o Chrome, navega até `/relatorio-pdf/` e clica em "Gerar PDF" — uma vez por tipo de relatório realmente necessário (nunca gera o mesmo PDF duas vezes, mesmo com vários inscritos pedindo o mesmo relatório).
 3. Salva cada PDF em `automacoes/relatorios/<tipo>_AAAA-MM-DD.pdf`.
-4. Envia um e-mail por inscrito, anexando só os relatórios que ele escolheu, usando as settings de e-mail do Django (mesma configuração da seção [Envio de E-mail](#envio-de-e-mail-mailtrap-smtp)).
+4. **(Django, não BotCity)** Envia um e-mail por inscrito, anexando só os relatórios que ele escolheu, usando as settings de e-mail do Django (mesma configuração da seção [Envio de E-mail](#envio-de-e-mail-mailtrap-smtp)).
 
 **Pré-requisitos**
 - Servidor Django rodando (`python manage.py runserver`).
